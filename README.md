@@ -1,10 +1,16 @@
 # Australia Post Tracking API & Webhooks
 
-Use Track123 to track Australia Post shipments through one unified shipment tracking API.
+Build Australia Post shipment tracking into an order page, operations dashboard, notification workflow, or customer-support tool with the Track123 Tracking API. Track123 provides one integration flow for carrier detection, tracking registration, tracking queries, normalized statuses, and webhook delivery.
 
-Track123 lets your application register Australia Post tracking numbers, retrieve tracking updates, and receive delivery events through webhooks.
+This repository is a practical integration guide for Australia Post tracking with Track123. It is **not** official Australia Post API documentation, and it does not provide a Australia Post SDK or test tracking numbers.
 
-- Australia Post carrier code: `australia-post`
+## What you can build
+
+With the Track123 API, an application can register Australia Post tracking numbers, retrieve the latest shipment events, and receive updates at an HTTPS webhook endpoint. The same API design can be used across the other carriers supported by Track123, which helps teams avoid building and maintaining a different integration for every carrier.
+
+For Australia Post, use the Track123 carrier code `australia-post` when the carrier is already known.
+
+When the carrier code is not known, use [Carrier Detection](https://docs.track123.com/reference/detection-courier) before registering the shipment.
 
 - [Track Australia Post packages on Track123](https://www.track123.com/carriers/australia-post)
 
@@ -12,35 +18,81 @@ Track123 lets your application register Australia Post tracking numbers, retriev
 
 - [Track123 API documentation](https://docs.track123.com)
 
-> This repository explains how to track Australia Post shipments with Track123. It is not official Australia Post API documentation.
+## Integration flow
 
-## Australia Post tracking API integration
+1. Get a Track123 API key and read the [API Guide](https://docs.track123.com/reference/request).
+2. Register one or more tracking numbers with the Track123 tracking registration endpoint.
 
-When your application already knows that a shipment is handled by Australia Post, set `courierCode` to `australia-post` when registering the tracking number.
+3. Set `courierCode` to `australia-post` when registering a shipment known to be handled by Australia Post.
 
-Use [Carrier Detection](https://docs.track123.com/reference/detection-courier) when your application does not have an approved carrier code.
+3. Detect the carrier when a verified carrier code is unavailable.
 
-Use your own tracking number in the registration request. Track123 does not provide public test tracking numbers in this repository.
+4. Query tracking results when your application needs the current state, or configure a webhook for event-driven updates.
+5. Map Track123's normalized delivery status and sub-status into your own order, notification, and support workflows.
 
-## Integration guides
+Track123 documents a maximum of **100 tracking numbers per registration request** and **100 tracking numbers per tracking query request**. For implementation details, field definitions, and the current response schema, use the linked API references as the source of truth.
+
+## Register a Australia Post tracking number
+
+The registration endpoint is `POST https://api.track123.com/gateway/open-api/tk/v2.1/track/import`. Replace the placeholder values below with your own API key and your own Australia Post tracking number. Do not commit credentials or customer tracking numbers to a repository.
+
+```bash
+curl --request POST 'https://api.track123.com/gateway/open-api/tk/v2.1/track/import' \
+  --header 'Content-Type: application/json' \
+  --header 'Track123-Api-Secret: YOUR_TRACK123_API_KEY' \
+  --data '[
+    {
+      "trackNo": "YOUR_australia-post_TRACKING_NUMBER",
+
+      "courierCode": "australia-post"
+
+      "courierCode": "YOUR_DETECTED_COURIER_CODE"
+
+    }
+  ]'
+```
+
+The request example is intentionally limited to the carrier code and tracking number. Review [Register package trackings](https://docs.track123.com/reference/register-package-trackings) before adding optional order, customer, destination, or carrier-specific fields.
+
+## Retrieve tracking results
+
+Use `POST https://api.track123.com/gateway/open-api/tk/v2.1/track/query` to retrieve the results for tracking numbers you have registered. A typical query supplies a `trackNoInfos` list. The response should be handled as a tracking record, not as a guarantee of shipment delivery; carrier source data can be delayed, incomplete, or revised.
+
+```bash
+curl --request POST 'https://api.track123.com/gateway/open-api/tk/v2.1/track/query' \
+  --header 'Content-Type: application/json' \
+  --header 'Track123-Api-Secret: YOUR_TRACK123_API_KEY' \
+  --data '{
+    "trackNoInfos": [
+      { "trackNo": "YOUR_australia-post_TRACKING_NUMBER" }
+    ]
+  }'
+```
+
+See [Get package trackings](https://docs.track123.com/reference/get-package-trackings) for the current request and response reference.
+
+## Choose polling, webhooks, or both
+
+Polling is useful when a dashboard refreshes on demand or when an application needs a current result for a specific order. Webhooks are useful when an application should react automatically to a new tracking event without continuously polling every shipment. Many integrations use both: webhooks for timely updates and an on-demand query for reconciliation or a customer-facing refresh.
+
+Read the related implementation guides:
 
 - [Australia Post tracking webhook](webhook.md)
 - [Australia Post tracking statuses](tracking-status.md)
 - [Australia Post API errors and rate limits](errors-and-rate-limits.md)
 
-## Australia Post tracking API resources
+## Before going live
 
-- [Register package trackings](https://docs.track123.com/reference/register-package-trackings)
-- [Get package trackings](https://docs.track123.com/reference/get-package-trackings)
-- [Carrier detection](https://docs.track123.com/reference/detection-courier)
+- Keep the `Track123-Api-Secret` on the server side; do not expose it in browser code.
+- Send only tracking numbers that your business is authorized to process.
+- Validate webhook signatures and make webhook handling idempotent.
+- Respect Track123 rate limits and use bounded retries for temporary failures.
+- Review the current [error codes](https://docs.track123.com/reference/status-code), [rate limits](https://docs.track123.com/reference/rate-limit), and [account quota](https://docs.track123.com/reference/get-account-quota) references before increasing volume.
 
-## Track Australia Post packages and view FAQs
-
-For shipment lookup, carrier contact information, and customer-facing FAQs, visit [Australia Post tracking on Track123](https://www.track123.com/carriers/australia-post).
-
-## More Track123 resources
+## Additional resources
 
 - [All supported carriers](https://www.track123.com/carriers)
 - [Track123 developer documentation](https://docs.track123.com)
+- [Track Australia Post packages and view carrier information](https://www.track123.com/carriers/australia-post)
 
 Carrier names and websites are used only to identify compatible carriers. Track123 is not affiliated with or endorsed by Australia Post unless explicitly stated.
